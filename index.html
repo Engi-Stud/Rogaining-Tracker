@@ -29,7 +29,7 @@
     // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Global variables (DO NOT CHANGE)
@@ -50,7 +50,6 @@
 
 };
 
-
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     const ADMIN_PASSWORD = "adminpass123";
 
@@ -67,8 +66,9 @@
         isSubmitting: false,
         submissions: [],
         leaderboard: [],
-        view: 'loading', // 'checkpoint', 'admin', 'loading', 'success', 'error'
-        message: ''
+        view: 'loading', // 'home', 'checkpoint', 'admin', 'loading', 'success', 'error', 'admin-login'
+        message: '',
+        generatedQrUrl: '',
     };
 
     // DOM Elements
@@ -148,12 +148,12 @@
                 </div>
             `;
         } else if (appState.view === 'admin') {
-            const hasLeaderboardData = appState.leaderboard.length > 0;
             const hasSubmissionsData = appState.submissions.length > 0;
+            const baseUrl = window.location.href.split('?')[0];
 
             content = `
                 <div class="p-4">
-                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6 text-center">Race Submissions</h1>
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6 text-center">Admin Dashboard</h1>
                     <div class="flex flex-col md:flex-row justify-between items-center mb-6">
                         <p class="text-sm font-semibold text-gray-500">Your User ID: ${userId}</p>
                         <button id="export-btn" class="mt-4 md:mt-0 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
@@ -161,35 +161,19 @@
                         </button>
                     </div>
 
-                    <!-- Live Leaderboard Section -->
-                    <div class="mb-8">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Live Leaderboard</h2>
-                        ${!hasLeaderboardData ? `
-                            <p class="text-center text-gray-500">No teams have completed both start and finish checkpoints yet.</p>
-                        ` : `
-                            <div class="overflow-x-auto rounded-lg shadow-md">
-                                <table class="min-w-full bg-white rounded-lg">
-                                    <thead class="bg-gray-200">
-                                        <tr>
-                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider rounded-tl-lg">Rank</th>
-                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Team Name</th>
-                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Checkpoints Completed</th>
-                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider rounded-tr-lg">Total Time</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-                                        ${appState.leaderboard.map((team, index) => `
-                                            <tr>
-                                                <td class="py-4 px-6 text-sm text-gray-800">${index + 1}</td>
-                                                <td class="py-4 px-6 text-sm text-gray-800 font-bold">${team.teamName}</td>
-                                                <td class="py-4 px-6 text-sm text-gray-800">${team.completedCheckpoints}</td>
-                                                <td class="py-4 px-6 text-sm text-gray-800">${team.totalTime || 'N/A'}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        `}
+                    <!-- QR Code Generator Section -->
+                    <div class="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">QR Code Generator</h2>
+                        <div class="space-y-4">
+                            <input type="text" id="base-url-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300" value="${baseUrl}" readonly>
+                            <input type="text" id="checkpoint-name-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300" placeholder="Enter checkpoint name (e.g., start)" required>
+                            <button id="generate-qr-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Generate QR URL</button>
+                        </div>
+                        <div id="qr-url-display" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300 hidden">
+                            <p class="text-sm font-medium text-gray-600">Generated URL:</p>
+                            <a id="qr-url-link" href="#" target="_blank" class="block mt-1 text-sm text-blue-600 truncate hover:underline"></a>
+                            <button id="copy-url-btn" class="mt-2 bg-gray-300 text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-gray-400 transition">Copy to Clipboard</button>
+                        </div>
                     </div>
 
                     <!-- Raw Submissions Section -->
@@ -215,6 +199,46 @@
                                                 <td class="py-4 px-6 text-sm text-gray-800 whitespace-nowrap">${s.teamName}</td>
                                                 <td class="py-4 px-6 text-sm text-gray-800 whitespace-nowrap">${s.checkpointId}</td>
                                                 <td class="py-4 px-6 text-sm text-gray-800 whitespace-nowrap">${s.userId}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        } else if (appState.view === 'home') {
+            const hasLeaderboardData = appState.leaderboard.length > 0;
+            content = `
+                <div class="p-4">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 md:mb-0">Live Leaderboard</h1>
+                        <button id="admin-login-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300">
+                            Admin Login
+                        </button>
+                    </div>
+                    <div class="mb-8">
+                        ${!hasLeaderboardData ? `
+                            <p class="text-center text-gray-500">No teams have completed both start and finish checkpoints yet.</p>
+                        ` : `
+                            <div class="overflow-x-auto rounded-lg shadow-md">
+                                <table class="min-w-full bg-white rounded-lg">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider rounded-tl-lg">Rank</th>
+                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Team Name</th>
+                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Checkpoints Completed</th>
+                                            <th class="py-3 px-6 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider rounded-tr-lg">Total Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+                                        ${appState.leaderboard.map((team, index) => `
+                                            <tr>
+                                                <td class="py-4 px-6 text-sm text-gray-800">${index + 1}</td>
+                                                <td class="py-4 px-6 text-sm text-gray-800 font-bold">${team.teamName}</td>
+                                                <td class="py-4 px-6 text-sm text-gray-800">${team.completedCheckpoints}</td>
+                                                <td class="py-4 px-6 text-sm text-gray-800">${team.totalTime || 'N/A'}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
@@ -282,12 +306,18 @@
                     const password = document.getElementById('admin-password').value;
                     if (password === ADMIN_PASSWORD) {
                         updateState({ view: 'admin', message: '' });
-                        setupAdminView();
                     } else {
                         updateState({ message: 'Incorrect password.' });
                     }
                 });
             }
+        } else if (appState.view === 'home') {
+             const adminBtn = document.getElementById('admin-login-btn');
+             if (adminBtn) {
+                adminBtn.addEventListener('click', () => {
+                    updateState({ view: 'admin-login' });
+                });
+             }
         } else if (appState.view === 'admin') {
             const exportBtn = document.getElementById('export-btn');
             if (exportBtn) {
@@ -295,10 +325,58 @@
                     exportToCsv();
                 });
             }
+            attachQrGeneratorListeners();
         }
     };
 
-    const setupAdminView = () => {
+    const attachQrGeneratorListeners = () => {
+        const generateBtn = document.getElementById('generate-qr-btn');
+        const baseUrlInput = document.getElementById('base-url-input');
+        const checkpointNameInput = document.getElementById('checkpoint-name-input');
+        const qrUrlDisplay = document.getElementById('qr-url-display');
+        const qrUrlLink = document.getElementById('qr-url-link');
+        const copyBtn = document.getElementById('copy-url-btn');
+
+        if (generateBtn) {
+            generateBtn.addEventListener('click', () => {
+                const baseUrl = baseUrlInput.value.trim();
+                const checkpointName = checkpointNameInput.value.trim();
+
+                if (baseUrl && checkpointName) {
+                    const generatedUrl = `${baseUrl.replace(/\/+$/, '')}?checkpoint=${encodeURIComponent(checkpointName)}`;
+                    qrUrlLink.textContent = generatedUrl;
+                    qrUrlLink.href = generatedUrl;
+                    qrUrlDisplay.classList.remove('hidden');
+                    updateState({ generatedQrUrl: generatedUrl });
+                } else {
+                    qrUrlDisplay.classList.add('hidden');
+                    updateState({ generatedQrUrl: '' });
+                    // No need for a modal, just hide the section if inputs are empty
+                }
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const urlToCopy = appState.generatedQrUrl;
+                if (urlToCopy) {
+                    const tempInput = document.createElement('textarea');
+                    tempInput.value = urlToCopy;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    // Provide a visual cue for copy success
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy to Clipboard';
+                    }, 2000);
+                }
+            });
+        }
+    };
+
+    const setupRealtimeListeners = () => {
         const submissionsColRef = collection(db, `artifacts/${appId}/public/data/submissions`);
         const q = query(submissionsColRef);
         onSnapshot(q, (querySnapshot) => {
@@ -405,11 +483,14 @@
         }
         userId = auth.currentUser ? auth.currentUser.uid : 'anonymous';
         isAuthReady = true;
+
+        setupRealtimeListeners(); // Start listening for data immediately
+
         const checkpointId = getQueryParam('checkpoint');
         if (checkpointId) {
             updateState({ isLoading: false, view: 'checkpoint' });
         } else {
-            updateState({ isLoading: false, view: 'admin-login' });
+            updateState({ isLoading: false, view: 'home' });
         }
     });
 
@@ -419,4 +500,3 @@
 
 </body>
 </html>
-
