@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+TYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -327,6 +327,8 @@
                             updateState({ isSubmitting: false, message: 'Success! Your team has been registered.', view: 'success' });
                         } catch (error) {
                             console.error("Error adding document: ", error);
+                            // Log the full error object for better debugging
+                            console.error(JSON.stringify(error, null, 2));
                             updateState({ isSubmitting: false, message: 'Error submitting. Please try again.', view: 'error' });
                         }
                     } else {
@@ -547,6 +549,8 @@
         }
         userId = auth.currentUser ? auth.currentUser.uid : 'anonymous';
         isAuthReady = true;
+
+        console.log("Current user ID: ", userId); // Debugging line
 
         setupRealtimeListeners(); // Start listening for data immediately
 
