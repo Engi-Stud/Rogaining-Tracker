@@ -152,6 +152,9 @@
             const hasSubmissionsData = appState.submissions.length > 0;
             const baseUrl = window.location.href.split('?')[0];
 
+            // Conditionally add 'hidden' class based on state
+            const qrDisplayClass = `mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300 text-center ${appState.generatedQrUrl ? '' : 'hidden'}`;
+
             content = `
                 <div class="p-4">
                     <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6 text-center">Admin Dashboard</h1>
@@ -170,10 +173,12 @@
                             <input type="text" id="checkpoint-name-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300" placeholder="Enter checkpoint name (e.g., start)" required>
                             <button id="generate-qr-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Generate QR Code</button>
                         </div>
-                        <div id="qr-display" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300 text-center hidden">
+                        <div id="qr-display" class="${qrDisplayClass}">
                             <div id="qrcode-container" class="mb-4 flex justify-center"></div>
                             <p class="text-sm font-medium text-gray-600">Generated URL:</p>
-                            <a id="qr-url-link" href="#" target="_blank" class="block mt-1 text-sm text-blue-600 truncate hover:underline"></a>
+                            <div class="overflow-x-auto p-2 bg-gray-200 rounded">
+                                <a id="qr-url-link" href="${appState.generatedQrUrl}" target="_blank" class="text-sm text-blue-600 hover:underline whitespace-nowrap">${appState.generatedQrUrl}</a>
+                            </div>
                             <button id="copy-url-btn" class="mt-2 bg-gray-300 text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-gray-400 transition">Copy URL</button>
                         </div>
                     </div>
@@ -328,6 +333,20 @@
                 });
             }
             attachQrGeneratorListeners();
+            if (appState.generatedQrUrl) {
+                 const qrcodeContainer = document.getElementById('qrcode-container');
+                 if (qrcodeContainer) {
+                     qrcodeContainer.innerHTML = '';
+                     new QRCode(qrcodeContainer, {
+                         text: appState.generatedQrUrl,
+                         width: 128,
+                         height: 128,
+                         colorDark: "#000000",
+                         colorLight: "#ffffff",
+                         correctLevel: QRCode.CorrectLevel.H
+                     });
+                 }
+             }
         }
     };
 
@@ -335,9 +354,6 @@
         const generateBtn = document.getElementById('generate-qr-btn');
         const baseUrlInput = document.getElementById('base-url-input');
         const checkpointNameInput = document.getElementById('checkpoint-name-input');
-        const qrDisplay = document.getElementById('qr-display');
-        const qrcodeContainer = document.getElementById('qrcode-container');
-        const qrUrlLink = document.getElementById('qr-url-link');
         const copyBtn = document.getElementById('copy-url-btn');
 
         if (generateBtn) {
@@ -347,24 +363,8 @@
 
                 if (baseUrl && checkpointName) {
                     const generatedUrl = `${baseUrl.replace(/\/+$/, '')}?checkpoint=${encodeURIComponent(checkpointName)}`;
-                    
-                    // Clear previous QR code and generate a new one
-                    qrcodeContainer.innerHTML = '';
-                    new QRCode(qrcodeContainer, {
-                        text: generatedUrl,
-                        width: 128,
-                        height: 128,
-                        colorDark : "#000000",
-                        colorLight : "#ffffff",
-                        correctLevel : QRCode.CorrectLevel.H
-                    });
-
-                    qrUrlLink.textContent = generatedUrl;
-                    qrUrlLink.href = generatedUrl;
-                    qrDisplay.classList.remove('hidden');
                     updateState({ generatedQrUrl: generatedUrl });
                 } else {
-                    qrDisplay.classList.add('hidden');
                     updateState({ generatedQrUrl: '' });
                 }
             });
