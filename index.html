@@ -30,7 +30,7 @@
     // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Global variables (DO NOT CHANGE)
@@ -70,6 +70,7 @@
         view: 'loading', // 'home', 'checkpoint', 'admin', 'loading', 'success', 'error', 'admin-login'
         message: '',
         generatedQrUrl: '',
+        confirmClear: false,
     };
 
     // DOM Elements
@@ -160,9 +161,14 @@
                     <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-6 text-center">Admin Dashboard</h1>
                     <div class="flex flex-col md:flex-row justify-between items-center mb-6">
                         <p class="text-sm font-semibold text-gray-500">Your User ID: ${userId}</p>
-                        <button id="export-btn" class="mt-4 md:mt-0 bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
-                            Export to CSV
-                        </button>
+                        <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
+                            <button id="export-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+                                Export to CSV
+                            </button>
+                            <button id="clear-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-red-600 transition duration-300">
+                                ${appState.confirmClear ? 'Are you sure?' : 'Clear Leaderboard'}
+                            </button>
+                        </div>
                     </div>
 
                     <!-- QR Code Generator Section -->
@@ -186,6 +192,7 @@
                     <!-- Raw Submissions Section -->
                     <div class="mt-8">
                         <h2 class="text-2xl font-bold text-gray-800 mb-4">Raw Submissions</h2>
+                        ${appState.message ? `<p class="text-center text-sm font-medium text-red-600">${appState.message}</p>` : ''}
                         ${!hasSubmissionsData ? `
                             <p class="text-center text-gray-500 text-lg">No submissions yet.</p>
                         ` : `
@@ -266,6 +273,23 @@
         render();
     };
 
+    const clearLeaderboard = async () => {
+        try {
+            updateState({ message: "Clearing data...", isSubmitting: true });
+            const submissionsColRef = collection(db, `artifacts/${appId}/public/data/submissions`);
+            const querySnapshot = await getDocs(submissionsColRef);
+            const deletePromises = [];
+            querySnapshot.forEach((doc) => {
+                deletePromises.push(deleteDoc(doc.ref));
+            });
+            await Promise.all(deletePromises);
+            updateState({ message: "All submissions cleared successfully!", isSubmitting: false, confirmClear: false });
+        } catch (error) {
+            console.error("Error clearing leaderboard: ", error);
+            updateState({ message: "Error clearing leaderboard. Please try again.", isSubmitting: false, confirmClear: false });
+        }
+    };
+
     const attachListeners = () => {
         if (appState.view === 'checkpoint') {
             const form = document.getElementById('submission-form');
@@ -338,6 +362,17 @@
                     exportToCsv();
                 });
             }
+            const clearBtn = document.getElementById('clear-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (appState.confirmClear) {
+                        clearLeaderboard();
+                    } else {
+                        updateState({ confirmClear: true });
+                    }
+                });
+            }
+
             attachQrGeneratorListeners();
             if (appState.generatedQrUrl) {
                  const qrcodeContainer = document.getElementById('qrcode-container');
