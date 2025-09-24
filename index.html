@@ -272,9 +272,11 @@
             if (form) {
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
-                    updateState({ isSubmitting: true, message: '' });
+                    // Fix: Get values before updating state to avoid clearing the form
                     const teamName = document.getElementById('team-name-input').value.trim();
                     const checkpointId = getQueryParam('checkpoint');
+                    
+                    updateState({ isSubmitting: true, message: '' });
 
                     // Debugging logs to check values
                     console.log('Attempting submission...');
