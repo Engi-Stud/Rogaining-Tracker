@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkpoint Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
         body {
@@ -167,12 +168,13 @@
                         <div class="space-y-4">
                             <input type="text" id="base-url-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300" value="${baseUrl}" readonly>
                             <input type="text" id="checkpoint-name-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300" placeholder="Enter checkpoint name (e.g., start)" required>
-                            <button id="generate-qr-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Generate QR URL</button>
+                            <button id="generate-qr-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Generate QR Code</button>
                         </div>
-                        <div id="qr-url-display" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300 hidden">
+                        <div id="qr-display" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300 text-center hidden">
+                            <div id="qrcode-container" class="mb-4 flex justify-center"></div>
                             <p class="text-sm font-medium text-gray-600">Generated URL:</p>
                             <a id="qr-url-link" href="#" target="_blank" class="block mt-1 text-sm text-blue-600 truncate hover:underline"></a>
-                            <button id="copy-url-btn" class="mt-2 bg-gray-300 text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-gray-400 transition">Copy to Clipboard</button>
+                            <button id="copy-url-btn" class="mt-2 bg-gray-300 text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-gray-400 transition">Copy URL</button>
                         </div>
                     </div>
 
@@ -333,7 +335,8 @@
         const generateBtn = document.getElementById('generate-qr-btn');
         const baseUrlInput = document.getElementById('base-url-input');
         const checkpointNameInput = document.getElementById('checkpoint-name-input');
-        const qrUrlDisplay = document.getElementById('qr-url-display');
+        const qrDisplay = document.getElementById('qr-display');
+        const qrcodeContainer = document.getElementById('qrcode-container');
         const qrUrlLink = document.getElementById('qr-url-link');
         const copyBtn = document.getElementById('copy-url-btn');
 
@@ -344,14 +347,25 @@
 
                 if (baseUrl && checkpointName) {
                     const generatedUrl = `${baseUrl.replace(/\/+$/, '')}?checkpoint=${encodeURIComponent(checkpointName)}`;
+                    
+                    // Clear previous QR code and generate a new one
+                    qrcodeContainer.innerHTML = '';
+                    new QRCode(qrcodeContainer, {
+                        text: generatedUrl,
+                        width: 128,
+                        height: 128,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+
                     qrUrlLink.textContent = generatedUrl;
                     qrUrlLink.href = generatedUrl;
-                    qrUrlDisplay.classList.remove('hidden');
+                    qrDisplay.classList.remove('hidden');
                     updateState({ generatedQrUrl: generatedUrl });
                 } else {
-                    qrUrlDisplay.classList.add('hidden');
+                    qrDisplay.classList.add('hidden');
                     updateState({ generatedQrUrl: '' });
-                    // No need for a modal, just hide the section if inputs are empty
                 }
             });
         }
@@ -375,7 +389,7 @@
                     // Provide a visual cue for copy success
                     copyBtn.textContent = 'Copied!';
                     setTimeout(() => {
-                        copyBtn.textContent = 'Copy to Clipboard';
+                        copyBtn.textContent = 'Copy URL';
                     }, 2000);
                 }
             });
@@ -421,7 +435,7 @@
             // Calculate leaderboard and sort
             const leaderboard = Object.keys(teamData).map(teamName => {
                 const team = teamData[teamName];
-                const startTimestamp = team.checkpoints['start'] ? team.check.toDate() : null;
+                const startTimestamp = team.checkpoints['start'] ? team.checkpoints['start'].toDate() : null;
                 const finishTimestamp = team.checkpoints['finish'] ? team.checkpoints['finish'].toDate() : null;
                 let totalTime = null;
 
