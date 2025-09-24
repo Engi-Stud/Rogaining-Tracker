@@ -275,6 +275,12 @@
                     updateState({ isSubmitting: true, message: '' });
                     const teamName = document.getElementById('team-name-input').value.trim();
                     const checkpointId = getQueryParam('checkpoint');
+
+                    // Debugging logs to check values
+                    console.log('Attempting submission...');
+                    console.log('Team Name:', teamName);
+                    console.log('Checkpoint ID:', checkpointId);
+
                     if (teamName && checkpointId) {
                         try {
                             const submissionsColRef = collection(db, `artifacts/${appId}/public/data/submissions`);
@@ -284,16 +290,14 @@
                                 timestamp: serverTimestamp(),
                                 userId: userId
                             });
+                            console.log('Submission successful!');
                             updateState({ isSubmitting: false, message: 'Success! Your team has been registered.', view: 'success' });
-                            // Redirect after 3 seconds
-                            setTimeout(() => {
-                                window.location.href = window.location.pathname + window.location.search;
-                            }, 3000);
                         } catch (error) {
                             console.error("Error adding document: ", error);
                             updateState({ isSubmitting: false, message: 'Error submitting. Please try again.', view: 'error' });
                         }
                     } else {
+                        console.log('Validation failed. Team name or Checkpoint ID is missing.');
                         updateState({ isSubmitting: false, message: 'Team name and checkpoint ID are required.', view: 'error' });
                     }
                 });
@@ -302,7 +306,7 @@
             const goBackBtn = document.getElementById('go-back-btn');
             if (goBackBtn) {
                 goBackBtn.addEventListener('click', () => {
-                    window.location.href = window.location.pathname + window.location.search;
+                    updateState({ view: 'home' });
                 });
             }
         } else if (appState.view === 'admin-login') {
