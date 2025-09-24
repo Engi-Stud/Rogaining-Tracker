@@ -30,7 +30,7 @@
     // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Global variables (DO NOT CHANGE)
@@ -278,14 +278,21 @@
             updateState({ message: "Clearing data...", isSubmitting: true });
             const submissionsColRef = collection(db, `artifacts/${appId}/public/data/submissions`);
             const querySnapshot = await getDocs(submissionsColRef);
-            const deletePromises = [];
+            
+            // Use a Firestore batch for more efficient and robust deletion
+            const batch = writeBatch(db);
+            
             querySnapshot.forEach((doc) => {
-                deletePromises.push(deleteDoc(doc.ref));
+                batch.delete(doc.ref);
             });
-            await Promise.all(deletePromises);
+
+            await batch.commit();
+
             updateState({ message: "All submissions cleared successfully!", isSubmitting: false, confirmClear: false });
         } catch (error) {
             console.error("Error clearing leaderboard: ", error);
+            // Log the full error object for better debugging
+            console.error(JSON.stringify(error, null, 2));
             updateState({ message: "Error clearing leaderboard. Please try again.", isSubmitting: false, confirmClear: false });
         }
     };
