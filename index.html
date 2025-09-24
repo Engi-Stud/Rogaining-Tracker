@@ -371,26 +371,22 @@
         }
 
         if (copyBtn) {
-            copyBtn.addEventListener('click', () => {
+            copyBtn.addEventListener('click', async () => {
                 const urlToCopy = appState.generatedQrUrl;
-                if (urlToCopy) {
-                    const tempInput = document.createElement('textarea');
-                    tempInput.value = urlToCopy;
-                    document.body.appendChild(tempInput);
-                    tempInput.select();
+                if (urlToCopy && navigator.clipboard) {
                     try {
-                        document.execCommand('copy');
-                        console.log('Successfully copied to clipboard.');
+                        await navigator.clipboard.writeText(urlToCopy);
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyBtn.textContent = 'Copy URL';
+                        }, 2000);
                     } catch (err) {
-                        console.error('Failed to copy to clipboard:', err);
+                        console.error('Failed to copy text: ', err);
+                        copyBtn.textContent = 'Error!';
+                        setTimeout(() => {
+                            copyBtn.textContent = 'Copy URL';
+                        }, 2000);
                     }
-                    document.body.removeChild(tempInput);
-                    
-                    // Provide a visual cue for copy success
-                    copyBtn.textContent = 'Copied!';
-                    setTimeout(() => {
-                        copyBtn.textContent = 'Copy URL';
-                    }, 2000);
                 }
             });
         }
