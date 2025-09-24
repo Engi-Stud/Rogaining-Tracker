@@ -364,8 +364,14 @@
                     tempInput.value = urlToCopy;
                     document.body.appendChild(tempInput);
                     tempInput.select();
-                    document.execCommand('copy');
+                    try {
+                        document.execCommand('copy');
+                        console.log('Successfully copied to clipboard.');
+                    } catch (err) {
+                        console.error('Failed to copy to clipboard:', err);
+                    }
                     document.body.removeChild(tempInput);
+                    
                     // Provide a visual cue for copy success
                     copyBtn.textContent = 'Copied!';
                     setTimeout(() => {
@@ -415,7 +421,7 @@
             // Calculate leaderboard and sort
             const leaderboard = Object.keys(teamData).map(teamName => {
                 const team = teamData[teamName];
-                const startTimestamp = team.checkpoints['start'] ? team.checkpoints['start'].toDate() : null;
+                const startTimestamp = team.checkpoints['start'] ? team.check.toDate() : null;
                 const finishTimestamp = team.checkpoints['finish'] ? team.checkpoints['finish'].toDate() : null;
                 let totalTime = null;
 
